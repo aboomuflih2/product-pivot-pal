@@ -18,6 +18,9 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import OrderManagement from "./pages/admin/OrderManagement";
+import ProductManagement from "./pages/admin/ProductManagement";
+import ProductEditor from "./pages/admin/ProductEditor";
+import CategoryManagement from "./pages/admin/CategoryManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +47,9 @@ const App = () => (
             <Route path="/account/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/orders" element={<OrderManagement />} />
+            <Route path="/admin/products" element={<ProductManagement />} />
+            <Route path="/admin/products/:id" element={<ProductEditor />} />
+            <Route path="/admin/categories" element={<CategoryManagement />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
