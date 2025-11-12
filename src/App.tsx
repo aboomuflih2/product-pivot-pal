@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,9 +27,10 @@ import StoreManagement from "./pages/admin/StoreManagement";
 import Stores from "./pages/Stores";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
-
-const App = () => (
+const App = () => {
+  const [queryClient] = useState(() => new QueryClient());
+  
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <CartProvider>
@@ -63,6 +65,7 @@ const App = () => (
       </CartProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
