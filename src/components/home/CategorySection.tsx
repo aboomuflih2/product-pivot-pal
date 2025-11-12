@@ -14,7 +14,10 @@ const CategorySection = () => {
         .limit(6);
 
       if (error) throw error;
-      return data;
+      return (data || []).map(cat => ({
+        ...cat,
+        thumbnail_url: (cat as any).thumbnail_url || null
+      }));
     },
   });
 
@@ -48,10 +51,22 @@ const CategorySection = () => {
           <Link
             key={category.id}
             to={`/shop?category=${category.slug}`}
-            className="group relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-all aspect-[4/3] bg-muted"
+            className="group relative aspect-[4/3] rounded-lg overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center p-4">
-              <h3 className="text-white font-bold text-xl md:text-2xl">{category.name}</h3>
+            {category.thumbnail_url ? (
+              <img 
+                src={category.thumbnail_url} 
+                alt={category.name}
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <h3 className="text-2xl font-semibold text-white group-hover:scale-110 transition-transform">
+                {category.name}
+              </h3>
             </div>
           </Link>
         ))}

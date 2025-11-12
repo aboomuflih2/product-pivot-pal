@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, Upload, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -32,6 +32,7 @@ interface Category {
   slug: string;
   description: string | null;
   is_active: boolean;
+  thumbnail_url: string | null;
 }
 
 const CategoryManagement = () => {
@@ -44,7 +45,11 @@ const CategoryManagement = () => {
     name: "",
     slug: "",
     description: "",
+    thumbnail_url: "",
   });
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,7 +64,10 @@ const CategoryManagement = () => {
         .order("name");
 
       if (error) throw error;
-      setCategories(data || []);
+      setCategories((data || []).map(cat => ({
+        ...cat,
+        thumbnail_url: (cat as any).thumbnail_url || null
+      })) as Category[]);
     } catch (error) {
       console.error("Error fetching categories:", error);
       toast({
@@ -76,18 +84,68 @@ const CategoryManagement = () => {
       name: category.name,
       slug: category.slug,
       description: category.description || "",
+      thumbnail_url: category.thumbnail_url || "",
     });
+    setThumbnailPreview(category.thumbnail_url);
+    setThumbnailFile(null);
     setDialogOpen(true);
   };
 
   const handleNew = () => {
     setEditingCategory(null);
-    setFormData({ name: "", slug: "", description: "" });
+    setFormData({ name: "", slug: "", description: "", thumbnail_url: "" });
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
     setDialogOpen(true);
   };
 
   const generateSlug = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  };
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid File",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setThumbnailFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeThumbnail = () => {
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
+    setFormData({ ...formData, thumbnail_url: "" });
+  };
+
+  const uploadThumbnail = async (categoryId: string): Promise<string | null> => {
+    if (!thumbnailFile) return null;
+
+    const fileExt = thumbnailFile.name.split('.').pop();
+    const fileName = `category-${categoryId}-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, thumbnailFile);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
   };
 
   const handleSave = async () => {
@@ -101,30 +159,56 @@ const CategoryManagement = () => {
     }
 
     const slug = formData.slug || generateSlug(formData.name);
+    setUploading(true);
 
     try {
+      let thumbnailUrl = formData.thumbnail_url;
+
       if (editingCategory) {
+        // Upload new thumbnail if file is selected
+        if (thumbnailFile) {
+          thumbnailUrl = await uploadThumbnail(editingCategory.id);
+        }
+
         const { error } = await supabase
           .from("categories")
           .update({
             name: formData.name,
             slug,
             description: formData.description || null,
+            thumbnail_url: thumbnailUrl || null,
           })
           .eq("id", editingCategory.id);
 
         if (error) throw error;
         toast({ title: "Success", description: "Category updated successfully" });
       } else {
-        const { error } = await supabase
+        // Create category first to get ID
+        const { data: newCategory, error: insertError } = await supabase
           .from("categories")
           .insert([{
             name: formData.name,
             slug,
             description: formData.description || null,
-          }]);
+          } as any])
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (insertError) throw insertError;
+
+        // Upload thumbnail if file is selected
+        if (thumbnailFile && newCategory) {
+          thumbnailUrl = await uploadThumbnail(newCategory.id);
+          
+          // Update category with thumbnail URL
+          const { error: updateError } = await supabase
+            .from("categories")
+            .update({ thumbnail_url: thumbnailUrl } as any)
+            .eq("id", newCategory.id);
+
+          if (updateError) throw updateError;
+        }
+
         toast({ title: "Success", description: "Category created successfully" });
       }
 
@@ -137,6 +221,8 @@ const CategoryManagement = () => {
         description: error.message || "Failed to save category",
         variant: "destructive",
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -277,8 +363,46 @@ const CategoryManagement = () => {
                   placeholder="Category description"
                 />
               </div>
-              <Button onClick={handleSave} className="w-full">
-                {editingCategory ? "Update" : "Create"}
+              <div>
+                <Label htmlFor="thumbnail">Thumbnail Image</Label>
+                {thumbnailPreview ? (
+                  <div className="mt-2 relative">
+                    <img 
+                      src={thumbnailPreview} 
+                      alt="Thumbnail preview" 
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={removeThumbnail}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <label
+                      htmlFor="thumbnail"
+                      className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                      <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Click to upload thumbnail</span>
+                      <input
+                        id="thumbnail"
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleThumbnailChange}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+              <Button onClick={handleSave} className="w-full" disabled={uploading}>
+                {uploading ? "Uploading..." : editingCategory ? "Update" : "Create"}
               </Button>
             </div>
           </DialogContent>
