@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import imageCompression from 'browser-image-compression';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AdminRoute from "@/components/auth/AdminRoute";
@@ -132,12 +133,31 @@ const ProductEditor = () => {
 
     try {
       for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop();
+        // Compress image for WhatsApp compatibility
+        const options = {
+          maxSizeMB: 0.3, // 300KB limit for WhatsApp
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+          fileType: 'image/jpeg',
+        };
+
+        const compressedFile = await imageCompression(file, options);
+        
+        // Validate file size
+        if (compressedFile.size > 300 * 1024) {
+          toast({
+            title: "Warning",
+            description: `Image ${file.name} is still too large after compression. Using compressed version anyway.`,
+            variant: "default",
+          });
+        }
+
+        const fileExt = 'jpg'; // Always use jpg for compressed images
         const fileName = `${id}/${Math.random()}.${fileExt}`;
 
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('product-images')
-          .upload(fileName, file);
+          .upload(fileName, compressedFile);
 
         if (uploadError) throw uploadError;
 
@@ -159,7 +179,7 @@ const ProductEditor = () => {
 
       toast({
         title: "Success",
-        description: "Images uploaded successfully",
+        description: "Images compressed and uploaded successfully",
       });
 
       fetchImages();

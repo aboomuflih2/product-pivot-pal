@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import imageCompression from 'browser-image-compression';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,12 +177,22 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
     setUploading(index);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      // Compress image for WhatsApp compatibility
+      const options = {
+        maxSizeMB: 0.3, // 300KB limit for WhatsApp
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+      };
+
+      const compressedFile = await imageCompression(file, options);
+
+      const fileExt = 'jpg'; // Always use jpg for compressed images
       const fileName = `${productId}/variants/${Math.random()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(fileName, file);
+        .upload(fileName, compressedFile);
 
       if (uploadError) throw uploadError;
 
@@ -193,7 +204,7 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
 
       toast({
         title: "Success",
-        description: "Variant image uploaded",
+        description: "Variant image compressed and uploaded",
       });
     } catch (error) {
       console.error("Error uploading variant image:", error);
