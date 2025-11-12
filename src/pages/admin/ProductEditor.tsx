@@ -371,7 +371,10 @@ const ProductEditor = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="image-upload">Upload Images</Label>
+                    <Label htmlFor="image-upload">Upload Multiple Images</Label>
+                    <p className="text-sm text-muted-foreground mt-1 mb-2">
+                      Select multiple images at once to upload
+                    </p>
                     <div className="mt-2">
                       <Input
                         id="image-upload"
@@ -382,6 +385,9 @@ const ProductEditor = () => {
                         disabled={uploading}
                       />
                     </div>
+                    {uploading && (
+                      <p className="text-sm text-muted-foreground mt-2">Uploading images...</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

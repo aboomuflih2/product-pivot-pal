@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, Upload, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 interface Variant {
@@ -18,6 +18,7 @@ interface Variant {
   price: number;
   stock_quantity: number;
   is_active: boolean;
+  image_url?: string | null;
 }
 
 interface VariantManagerProps {
@@ -31,6 +32,7 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
   const [newSize, setNewSize] = useState("");
   const [newColor, setNewColor] = useState("");
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -167,6 +169,70 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
     setVariants(updated);
   };
 
+  const handleVariantImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(index);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${productId}/variants/${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      updateVariant(index, 'image_url', publicUrl);
+
+      toast({
+        title: "Success",
+        description: "Variant image uploaded",
+      });
+    } catch (error) {
+      console.error("Error uploading variant image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleDeleteVariantImage = async (index: number) => {
+    const variant = variants[index];
+    if (!variant.image_url) return;
+
+    try {
+      const fileName = variant.image_url.split('/').slice(-3).join('/');
+      await supabase.storage
+        .from('product-images')
+        .remove([fileName]);
+
+      updateVariant(index, 'image_url', null);
+
+      toast({
+        title: "Success",
+        description: "Variant image deleted",
+      });
+    } catch (error) {
+      console.error("Error deleting variant image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete image",
+        variant: "destructive",
+      });
+    }
+  };
+
   const saveVariants = async () => {
     try {
       for (const variant of variants) {
@@ -181,6 +247,7 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
               price: variant.price,
               stock_quantity: variant.stock_quantity,
               is_active: variant.is_active,
+              image_url: variant.image_url || null,
             })
             .eq("id", variant.id);
 
@@ -197,6 +264,7 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
               price: variant.price,
               stock_quantity: variant.stock_quantity,
               is_active: variant.is_active,
+              image_url: variant.image_url || null,
             });
 
           if (error) throw error;
@@ -340,6 +408,7 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
                   <TableHead>Color</TableHead>
                   <TableHead>Price (₹)</TableHead>
                   <TableHead>Stock</TableHead>
+                  <TableHead>Image</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -371,6 +440,43 @@ const VariantManager = ({ productId }: VariantManagerProps) => {
                         onChange={(e) => updateVariant(index, 'stock_quantity', parseInt(e.target.value) || 0)}
                         className="w-20"
                       />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {variant.image_url ? (
+                          <div className="relative group">
+                            <img src={variant.image_url} alt="Variant" className="w-12 h-12 object-cover rounded" />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDeleteVariantImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleVariantImageUpload(index, e)}
+                              disabled={uploading === index}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              disabled={uploading === index}
+                            >
+                              <span>
+                                <Upload className="h-4 w-4" />
+                              </span>
+                            </Button>
+                          </label>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Switch

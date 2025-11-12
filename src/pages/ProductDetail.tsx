@@ -38,6 +38,7 @@ interface ProductVariant {
   price: number;
   stock_quantity: number;
   is_active: boolean;
+  image_url?: string | null;
 }
 
 interface Category {
@@ -71,7 +72,7 @@ const ProductDetail = () => {
   });
 
   // Fetch product images
-  const { data: images = [] } = useQuery({
+  const { data: images = [], isLoading: imagesLoading } = useQuery({
     queryKey: ["product-images", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -87,7 +88,7 @@ const ProductDetail = () => {
   });
 
   // Fetch product variants
-  const { data: variants = [] } = useQuery({
+  const { data: variants = [], isLoading: variantsLoading } = useQuery({
     queryKey: ["product-variants", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -103,7 +104,7 @@ const ProductDetail = () => {
   });
 
   // Fetch category
-  const { data: category } = useQuery({
+  const { data: category, isLoading: categoryLoading } = useQuery({
     queryKey: ["category", product?.category_id],
     queryFn: async () => {
       if (!product?.category_id) return null;
@@ -152,7 +153,11 @@ const ProductDetail = () => {
 
   const currentPrice = currentVariant?.price || 0;
   const currentStock = currentVariant?.stock_quantity || 0;
-  const imageUrls = images.map((img) => img.image_url);
+  
+  // Get image URLs - prioritize variant image if selected, then product images
+  const imageUrls = currentVariant?.image_url 
+    ? [currentVariant.image_url, ...images.map(img => img.image_url)]
+    : images.map(img => img.image_url);
 
   // Reset quantity when variant changes
   useEffect(() => {
@@ -176,7 +181,7 @@ const ProductDetail = () => {
     });
   };
 
-  if (productLoading) {
+  if (productLoading || categoryLoading || variantsLoading || imagesLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -262,7 +267,13 @@ const ProductDetail = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Image Gallery */}
             <div>
-              <ImageGallery images={imageUrls} productName={product.title} />
+              {imageUrls.length > 0 ? (
+                <ImageGallery images={imageUrls} productName={product.title} />
+              ) : (
+                <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                  <p className="text-muted-foreground">No image available</p>
+                </div>
+              )}
             </div>
 
             {/* Product Info */}
