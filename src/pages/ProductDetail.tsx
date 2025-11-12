@@ -1,88 +1,158 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ImageGallery from "@/components/product/ImageGallery";
 import VariantSelector from "@/components/product/VariantSelector";
 import StockStatus from "@/components/product/StockStatus";
 import QuantitySelector from "@/components/product/QuantitySelector";
+import SocialShare from "@/components/product/SocialShare";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Heart, Share2, ChevronRight } from "lucide-react";
+import { ShoppingCart, Heart, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Mock product data with variants
-const mockProductData = {
-  id: 1,
-  name: "Premium Cotton Baby Romper Set",
-  description:
-    "Soft, breathable cotton romper perfect for your little one. Features easy snap buttons for quick diaper changes and adorable designs that your baby will love.",
-  category: "Newborn",
-  basePrice: 1299,
-  colors: [
-    { id: "pink", name: "Pink", hex: "#EC4899" },
-    { id: "blue", name: "Blue", hex: "#3B82F6" },
-    { id: "yellow", name: "Yellow", hex: "#F59E0B" },
-    { id: "mint", name: "Mint Green", hex: "#10B981" },
-  ],
-  sizes: [
-    { id: "0-3m", name: "0-3M" },
-    { id: "3-6m", name: "3-6M" },
-    { id: "6-12m", name: "6-12M" },
-    { id: "12-18m", name: "12-18M" },
-  ],
-  variants: {
-    "pink-0-3m": { stock: 8, price: 1299, images: generateImages(5, 1522771739844) },
-    "pink-3-6m": { stock: 12, price: 1299, images: generateImages(4, 1522771739844) },
-    "pink-6-12m": { stock: 3, price: 1399, images: generateImages(5, 1522771739844) },
-    "pink-12-18m": { stock: 0, price: 1399, images: generateImages(3, 1522771739844) },
-    "blue-0-3m": { stock: 15, price: 1299, images: generateImages(4, 1503944583220) },
-    "blue-3-6m": { stock: 20, price: 1299, images: generateImages(5, 1503944583220) },
-    "blue-6-12m": { stock: 7, price: 1399, images: generateImages(4, 1503944583220) },
-    "blue-12-18m": { stock: 4, price: 1399, images: generateImages(3, 1503944583220) },
-    "yellow-0-3m": { stock: 10, price: 1349, images: generateImages(4, 1515488042361) },
-    "yellow-3-6m": { stock: 6, price: 1349, images: generateImages(5, 1515488042361) },
-    "yellow-6-12m": { stock: 2, price: 1449, images: generateImages(4, 1515488042361) },
-    "yellow-12-18m": { stock: 8, price: 1449, images: generateImages(3, 1515488042361) },
-    "mint-0-3m": { stock: 12, price: 1299, images: generateImages(5, 1518831959646) },
-    "mint-3-6m": { stock: 0, price: 1299, images: generateImages(4, 1518831959646) },
-    "mint-6-12m": { stock: 5, price: 1399, images: generateImages(5, 1518831959646) },
-    "mint-12-18m": { stock: 9, price: 1399, images: generateImages(3, 1518831959646) },
-  },
-  details: {
-    material: "100% Organic Cotton",
-    careInstructions: "Machine wash cold, tumble dry low",
-    origin: "Imported",
-    features: [
-      "Soft and breathable fabric",
-      "Easy snap button closures",
-      "Expandable shoulders for easy dressing",
-      "Tag-free for comfort",
-      "Meets safety standards",
-    ],
-  },
-};
+interface Product {
+  id: string;
+  title: string;
+  description: string | null;
+  category_id: string | null;
+}
 
-function generateImages(count: number, baseId: number): string[] {
-  return Array.from(
-    { length: count },
-    (_, i) => `https://images.unsplash.com/photo-${baseId + i}?w=800&h=800&fit=crop`
-  );
+interface ProductImage {
+  id: string;
+  image_url: string;
+  is_primary: boolean;
+  display_order: number;
+}
+
+interface ProductVariant {
+  id: string;
+  sku: string;
+  color: string | null;
+  size: string | null;
+  price: number;
+  stock_quantity: number;
+  is_active: boolean;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 const ProductDetail = () => {
   const { id } = useParams();
   const { toast } = useToast();
-  const [selectedColor, setSelectedColor] = useState(mockProductData.colors[0].id);
-  const [selectedSize, setSelectedSize] = useState(mockProductData.sizes[0].id);
   const [quantity, setQuantity] = useState(1);
+  const [selectedColor, setSelectedColor] = useState<string>("");
+  const [selectedSize, setSelectedSize] = useState<string>("");
 
-  const variantKey = `${selectedColor}-${selectedSize}`;
-  const currentVariant = mockProductData.variants[variantKey as keyof typeof mockProductData.variants];
-  const currentPrice = currentVariant?.price || mockProductData.basePrice;
-  const currentStock = currentVariant?.stock || 0;
-  const currentImages = currentVariant?.images || generateImages(3, 1515488042361);
+  // Fetch product data
+  const { data: product, isLoading: productLoading } = useQuery({
+    queryKey: ["product", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .eq("is_active", true)
+        .single();
+
+      if (error) throw error;
+      return data as Product;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch product images
+  const { data: images = [] } = useQuery({
+    queryKey: ["product-images", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_images")
+        .select("*")
+        .eq("product_id", id)
+        .order("display_order");
+
+      if (error) throw error;
+      return data as ProductImage[];
+    },
+    enabled: !!id,
+  });
+
+  // Fetch product variants
+  const { data: variants = [] } = useQuery({
+    queryKey: ["product-variants", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_variants")
+        .select("*")
+        .eq("product_id", id)
+        .eq("is_active", true);
+
+      if (error) throw error;
+      return data as ProductVariant[];
+    },
+    enabled: !!id,
+  });
+
+  // Fetch category
+  const { data: category } = useQuery({
+    queryKey: ["category", product?.category_id],
+    queryFn: async () => {
+      if (!product?.category_id) return null;
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("id", product.category_id)
+        .single();
+
+      if (error) throw error;
+      return data as Category;
+    },
+    enabled: !!product?.category_id,
+  });
+
+  // Extract unique colors and sizes from variants
+  const colors = Array.from(
+    new Set(variants.map((v) => v.color).filter(Boolean))
+  ).map((color) => ({
+    id: color!,
+    name: color!,
+    hex: "#3B82F6", // Default color, could be enhanced with color mapping
+  }));
+
+  const sizes = Array.from(
+    new Set(variants.map((v) => v.size).filter(Boolean))
+  ).map((size) => ({
+    id: size!,
+    name: size!,
+  }));
+
+  // Initialize selected color and size
+  useEffect(() => {
+    if (colors.length > 0 && !selectedColor) {
+      setSelectedColor(colors[0].id);
+    }
+    if (sizes.length > 0 && !selectedSize) {
+      setSelectedSize(sizes[0].id);
+    }
+  }, [colors, sizes, selectedColor, selectedSize]);
+
+  // Find current variant based on selected color and size
+  const currentVariant = variants.find(
+    (v) => v.color === selectedColor && v.size === selectedSize
+  );
+
+  const currentPrice = currentVariant?.price || 0;
+  const currentStock = currentVariant?.stock_quantity || 0;
+  const imageUrls = images.map((img) => img.image_url);
 
   // Reset quantity when variant changes
   useEffect(() => {
@@ -102,14 +172,60 @@ const ProductDetail = () => {
 
     toast({
       title: "Added to cart!",
-      description: `${quantity}x ${mockProductData.name} - ${
-        mockProductData.colors.find((c) => c.id === selectedColor)?.name
-      }, ${mockProductData.sizes.find((s) => s.id === selectedSize)?.name}`,
+      description: `${quantity}x ${product?.title} - ${selectedColor}, ${selectedSize}`,
     });
   };
 
+  if (productLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-muted-foreground">Loading product...</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-muted-foreground">Product not found</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const currentUrl = window.location.href;
+  const primaryImage = imageUrls[0] || "";
+  const productDescription = product.description || "";
+
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet>
+        <title>{product.title} - 911 Clothings</title>
+        <meta name="description" content={productDescription} />
+        
+        {/* Open Graph tags for Facebook, WhatsApp, LinkedIn */}
+        <meta property="og:type" content="product" />
+        <meta property="og:title" content={product.title} />
+        <meta property="og:description" content={productDescription} />
+        <meta property="og:image" content={primaryImage} />
+        <meta property="og:url" content={currentUrl} />
+        <meta property="og:price:amount" content={currentPrice.toString()} />
+        <meta property="og:price:currency" content="INR" />
+        
+        {/* Twitter Card tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={product.title} />
+        <meta name="twitter:description" content={productDescription} />
+        <meta name="twitter:image" content={primaryImage} />
+      </Helmet>
+
       <Header />
 
       <main className="flex-1">
@@ -124,15 +240,19 @@ const ProductDetail = () => {
               <Link to="/shop" className="text-muted-foreground hover:text-primary">
                 Shop
               </Link>
+              {category && (
+                <>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <Link
+                    to={`/category/${category.slug}`}
+                    className="text-muted-foreground hover:text-primary"
+                  >
+                    {category.name}
+                  </Link>
+                </>
+              )}
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <Link
-                to={`/category/${mockProductData.category.toLowerCase()}`}
-                className="text-muted-foreground hover:text-primary"
-              >
-                {mockProductData.category}
-              </Link>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="text-foreground font-medium">{mockProductData.name}</span>
+              <span className="text-foreground font-medium">{product.title}</span>
             </nav>
           </div>
         </div>
@@ -142,47 +262,55 @@ const ProductDetail = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Image Gallery */}
             <div>
-              <ImageGallery images={currentImages} productName={mockProductData.name} />
+              <ImageGallery images={imageUrls} productName={product.title} />
             </div>
 
             {/* Product Info */}
             <div className="space-y-6">
               {/* Title & Category */}
               <div>
-                <Badge variant="secondary" className="mb-3">
-                  {mockProductData.category}
-                </Badge>
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">{mockProductData.name}</h1>
+                {category && (
+                  <Badge variant="secondary" className="mb-3">
+                    {category.name}
+                  </Badge>
+                )}
+                <h1 className="text-3xl md:text-4xl font-bold mb-2">{product.title}</h1>
               </div>
 
               {/* Price & Stock */}
               <div className="flex items-center gap-4">
-                <p className="text-3xl font-bold text-primary">₹{currentPrice}</p>
+                <p className="text-3xl font-bold text-primary">₹{currentPrice.toLocaleString()}</p>
                 <StockStatus stock={currentStock} />
               </div>
 
               <Separator />
 
               {/* Description */}
-              <div>
-                <p className="text-muted-foreground leading-relaxed">
-                  {mockProductData.description}
-                </p>
-              </div>
-
-              <Separator />
+              {productDescription && (
+                <>
+                  <div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {productDescription}
+                    </p>
+                  </div>
+                  <Separator />
+                </>
+              )}
 
               {/* Variant Selector */}
-              <VariantSelector
-                colors={mockProductData.colors}
-                sizes={mockProductData.sizes}
-                selectedColor={selectedColor}
-                selectedSize={selectedSize}
-                onColorChange={handleColorChange}
-                onSizeChange={handleSizeChange}
-              />
-
-              <Separator />
+              {(colors.length > 0 || sizes.length > 0) && (
+                <>
+                  <VariantSelector
+                    colors={colors}
+                    sizes={sizes}
+                    selectedColor={selectedColor}
+                    selectedSize={selectedSize}
+                    onColorChange={handleColorChange}
+                    onSizeChange={handleSizeChange}
+                  />
+                  <Separator />
+                </>
+              )}
 
               {/* Quantity Selector */}
               <QuantitySelector
@@ -206,45 +334,12 @@ const ProductDetail = () => {
                 <Button size="lg" variant="outline">
                   <Heart className="h-5 w-5" />
                 </Button>
-                <Button size="lg" variant="outline">
-                  <Share2 className="h-5 w-5" />
-                </Button>
-              </div>
-
-              <Separator />
-
-              {/* Product Details */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Product Details</h3>
-                <dl className="space-y-2 text-sm">
-                  <div className="flex">
-                    <dt className="font-medium w-32">Material:</dt>
-                    <dd className="text-muted-foreground">{mockProductData.details.material}</dd>
-                  </div>
-                  <div className="flex">
-                    <dt className="font-medium w-32">Care:</dt>
-                    <dd className="text-muted-foreground">
-                      {mockProductData.details.careInstructions}
-                    </dd>
-                  </div>
-                  <div className="flex">
-                    <dt className="font-medium w-32">Origin:</dt>
-                    <dd className="text-muted-foreground">{mockProductData.details.origin}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              {/* Features */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">Features</h3>
-                <ul className="space-y-2">
-                  {mockProductData.details.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                      <span className="text-muted-foreground">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                <SocialShare
+                  url={currentUrl}
+                  title={product.title}
+                  description={productDescription}
+                  imageUrl={primaryImage}
+                />
               </div>
             </div>
           </div>
