@@ -422,8 +422,6 @@ export type Database = {
           id: string
           instagram: string | null
           is_active: boolean
-          latitude: number
-          longitude: number
           name: string
           opening_hours: Json
           phone: string
@@ -446,8 +444,6 @@ export type Database = {
           id?: string
           instagram?: string | null
           is_active?: boolean
-          latitude: number
-          longitude: number
           name: string
           opening_hours?: Json
           phone: string
@@ -470,8 +466,6 @@ export type Database = {
           id?: string
           instagram?: string | null
           is_active?: boolean
-          latitude?: number
-          longitude?: number
           name?: string
           opening_hours?: Json
           phone?: string
