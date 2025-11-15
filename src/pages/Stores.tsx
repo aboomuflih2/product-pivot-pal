@@ -62,16 +62,12 @@ const Stores = () => {
 
       if (storesError) throw storesError;
 
-      // For now, set stores without images until migration is applied
-      // After migration, uncomment the image fetching code below
-      setStores((storesData || []).map(store => ({ ...store, images: [] })) as Store[]);
-
-      /* Uncomment after applying the database migration:
+      // Fetch images for each store
       const storesWithImages = await Promise.all(
         (storesData || []).map(async (store) => {
           const { data: images } = await supabase
             .from("store_images")
-            .select("image_url, is_primary, display_order")
+            .select("*")
             .eq("store_id", store.id)
             .order("display_order");
 
@@ -81,8 +77,8 @@ const Stores = () => {
           };
         })
       );
-      setStores(storesWithImages as Store[]);
-      */
+
+      setStores(storesWithImages as Store[])
     } catch (error) {
       console.error("Error fetching stores:", error);
     } finally {
