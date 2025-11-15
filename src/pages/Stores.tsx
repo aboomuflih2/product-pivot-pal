@@ -67,7 +67,7 @@ const Stores = () => {
         (storesData || []).map(async (store) => {
           const { data: images } = await supabase
             .from("store_images")
-            .select("*")
+            .select("image_url, is_primary, display_order")
             .eq("store_id", store.id)
             .order("display_order");
 
@@ -78,7 +78,7 @@ const Stores = () => {
         })
       );
 
-      setStores(storesWithImages as Store[])
+      setStores(storesWithImages);
     } catch (error) {
       console.error("Error fetching stores:", error);
     } finally {
