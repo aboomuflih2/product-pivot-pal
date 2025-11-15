@@ -63,7 +63,7 @@ const Stores = () => {
       if (storesError) throw storesError;
 
       // Fetch images for each store
-      const storesWithImages = await Promise.all(
+      const storesWithImages: Store[] = await Promise.all(
         (storesData || []).map(async (store) => {
           const { data: images } = await supabase
             .from("store_images")
@@ -73,8 +73,9 @@ const Stores = () => {
 
           return {
             ...store,
-            images: images || [],
-          };
+            opening_hours: store.opening_hours as Record<string, string>,
+            images: (images || []) as StoreImage[],
+          } as Store;
         })
       );
 

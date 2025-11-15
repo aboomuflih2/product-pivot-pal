@@ -372,6 +372,41 @@ export type Database = {
         }
         Relationships: []
       }
+      store_images: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string
+          is_primary: boolean
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url: string
+          is_primary?: boolean
+          store_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string
+          is_primary?: boolean
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_images_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stores: {
         Row: {
           address_line_1: string
@@ -379,8 +414,13 @@ export type Database = {
           city: string
           country: string
           created_at: string
+          district: string | null
           email: string | null
+          facebook: string | null
+          google_business_url: string | null
+          google_maps_url: string | null
           id: string
+          instagram: string | null
           is_active: boolean
           latitude: number
           longitude: number
@@ -390,6 +430,7 @@ export type Database = {
           postal_code: string
           state: string
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           address_line_1: string
@@ -397,8 +438,13 @@ export type Database = {
           city: string
           country?: string
           created_at?: string
+          district?: string | null
           email?: string | null
+          facebook?: string | null
+          google_business_url?: string | null
+          google_maps_url?: string | null
           id?: string
+          instagram?: string | null
           is_active?: boolean
           latitude: number
           longitude: number
@@ -408,6 +454,7 @@ export type Database = {
           postal_code: string
           state: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           address_line_1?: string
@@ -415,8 +462,13 @@ export type Database = {
           city?: string
           country?: string
           created_at?: string
+          district?: string | null
           email?: string | null
+          facebook?: string | null
+          google_business_url?: string | null
+          google_maps_url?: string | null
           id?: string
+          instagram?: string | null
           is_active?: boolean
           latitude?: number
           longitude?: number
@@ -426,6 +478,7 @@ export type Database = {
           postal_code?: string
           state?: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
