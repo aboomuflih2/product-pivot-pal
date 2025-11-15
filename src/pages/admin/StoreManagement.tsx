@@ -33,13 +33,17 @@ interface Store {
   address_line_2: string | null;
   city: string;
   state: string;
+  district?: string | null;
   postal_code: string;
   country: string;
   phone: string;
   email: string | null;
+  whatsapp?: string | null;
+  google_maps_url?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  google_business_url?: string | null;
   opening_hours: any;
-  latitude: number;
-  longitude: number;
   is_active: boolean;
 }
 
@@ -65,12 +69,16 @@ const StoreManagement = () => {
     address_line_2: "",
     city: "",
     state: "",
+    district: "",
     postal_code: "",
     country: "India",
     phone: "",
     email: "",
-    latitude: "",
-    longitude: "",
+    whatsapp: "",
+    google_maps_url: "",
+    facebook: "",
+    instagram: "",
+    google_business_url: "",
     is_active: true,
     opening_hours: defaultOpeningHours,
   });
@@ -107,12 +115,16 @@ const StoreManagement = () => {
       address_line_2: store.address_line_2 || "",
       city: store.city,
       state: store.state,
+      district: store.district || "",
       postal_code: store.postal_code,
       country: store.country,
       phone: store.phone,
       email: store.email || "",
-      latitude: store.latitude.toString(),
-      longitude: store.longitude.toString(),
+      whatsapp: store.whatsapp || "",
+      google_maps_url: store.google_maps_url || "",
+      facebook: store.facebook || "",
+      instagram: store.instagram || "",
+      google_business_url: store.google_business_url || "",
       is_active: store.is_active,
       opening_hours: store.opening_hours,
     });
@@ -127,12 +139,16 @@ const StoreManagement = () => {
       address_line_2: "",
       city: "",
       state: "",
+      district: "",
       postal_code: "",
       country: "India",
       phone: "",
       email: "",
-      latitude: "",
-      longitude: "",
+      whatsapp: "",
+      google_maps_url: "",
+      facebook: "",
+      instagram: "",
+      google_business_url: "",
       is_active: true,
       opening_hours: defaultOpeningHours,
     });
@@ -149,15 +165,6 @@ const StoreManagement = () => {
       return;
     }
 
-    if (!formData.latitude || !formData.longitude) {
-      toast({
-        title: "Validation Error",
-        description: "Latitude and Longitude are required",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const storeData = {
         name: formData.name,
@@ -165,12 +172,16 @@ const StoreManagement = () => {
         address_line_2: formData.address_line_2 || null,
         city: formData.city,
         state: formData.state,
+        district: formData.district || null,
         postal_code: formData.postal_code,
         country: formData.country,
         phone: formData.phone,
         email: formData.email || null,
-        latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude),
+        whatsapp: formData.whatsapp || null,
+        google_maps_url: formData.google_maps_url || null,
+        facebook: formData.facebook || null,
+        instagram: formData.instagram || null,
+        google_business_url: formData.google_business_url || null,
         is_active: formData.is_active,
         opening_hours: formData.opening_hours,
       };
@@ -410,26 +421,62 @@ const StoreManagement = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="latitude">Latitude *</Label>
+                  <Label htmlFor="district">District</Label>
                   <Input
-                    id="latitude"
-                    type="number"
-                    step="any"
-                    value={formData.latitude}
-                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                    placeholder="19.0760"
+                    id="district"
+                    value={formData.district}
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    placeholder="District name"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="longitude">Longitude *</Label>
+                  <Label htmlFor="whatsapp">WhatsApp</Label>
                   <Input
-                    id="longitude"
-                    type="number"
-                    step="any"
-                    value={formData.longitude}
-                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                    placeholder="72.8777"
+                    id="whatsapp"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="google_maps_url">Google Maps URL</Label>
+                  <Input
+                    id="google_maps_url"
+                    value={formData.google_maps_url}
+                    onChange={(e) => setFormData({ ...formData, google_maps_url: e.target.value })}
+                    placeholder="https://goo.gl/maps/..."
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="facebook">Facebook</Label>
+                  <Input
+                    id="facebook"
+                    value={formData.facebook}
+                    onChange={(e) => setFormData({ ...formData, facebook: e.target.value })}
+                    placeholder="https://facebook.com/..."
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="instagram">Instagram</Label>
+                  <Input
+                    id="instagram"
+                    value={formData.instagram}
+                    onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                    placeholder="https://instagram.com/..."
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="google_business_url">Google Business URL</Label>
+                  <Input
+                    id="google_business_url"
+                    value={formData.google_business_url}
+                    onChange={(e) => setFormData({ ...formData, google_business_url: e.target.value })}
+                    placeholder="https://g.page/..."
                   />
                 </div>
 
