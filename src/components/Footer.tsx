@@ -99,6 +99,12 @@ const Footer = () => {
                   info@911clothings.com
                 </a>
               </li>
+              <li className="flex items-center space-x-2 text-sm">
+                <Mail className="h-5 w-5 text-primary flex-shrink-0" />
+                <a href="mailto:911clothings@gmail.com" className="text-muted-foreground hover:text-primary transition-colors">
+                  911clothings@gmail.com
+                </a>
+              </li>
             </ul>
           </div>
         </div>
