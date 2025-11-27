@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, ShoppingCart, FolderTree, Store } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, FolderTree, Store, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const AdminNav = () => {
@@ -11,6 +11,7 @@ const AdminNav = () => {
     { name: "Products", path: "/admin/products", icon: Package },
     { name: "Categories", path: "/admin/categories", icon: FolderTree },
     { name: "Stores", path: "/admin/stores", icon: Store },
+    { name: "Payment Settings", path: "/admin/payment-settings", icon: CreditCard },
   ];
 
   return (

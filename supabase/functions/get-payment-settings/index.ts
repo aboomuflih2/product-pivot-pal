@@ -13,48 +13,26 @@ serve(async (req) => {
   }
 
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
-
-    // Create Supabase client with user's auth
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    // Verify user is authenticated
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    // Use service role to fetch payment settings
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseClient
       .from('payment_settings')
-      .select('upi_id, upi_qr_code_url')
+      .select('upi_id, upi_qr_code_url, upi_number')
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching payment settings:', error);
-      throw new Error('Payment settings not found');
+      // Fall through to return a safe empty payload
     }
 
+    const payload = data ?? { upi_id: null, upi_qr_code_url: null, upi_number: null };
+
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify(payload),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

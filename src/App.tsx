@@ -24,6 +24,7 @@ import ProductManagement from "./pages/admin/ProductManagement";
 import ProductEditor from "./pages/admin/ProductEditor";
 import CategoryManagement from "./pages/admin/CategoryManagement";
 import StoreManagement from "./pages/admin/StoreManagement";
+import PaymentSettings from "./pages/admin/PaymentSettings";
 import Stores from "./pages/Stores";
 import NotFound from "./pages/NotFound";
 
@@ -58,6 +59,7 @@ const App = () => {
             <Route path="/admin/products/:id" element={<ProductEditor />} />
             <Route path="/admin/categories" element={<CategoryManagement />} />
             <Route path="/admin/stores" element={<StoreManagement />} />
+            <Route path="/admin/payment-settings" element={<PaymentSettings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

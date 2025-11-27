@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/functions";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, Copy } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 const addressSchema = z.object({
@@ -85,13 +86,33 @@ const Checkout = () => {
   const loadUPIDetails = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('get-payment-settings');
-      
-      if (error) throw error;
-      if (data && !data.error) {
+      if (!error && data && !data.error) {
         setUpiDetails(data);
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load UPI details:', error);
+    } catch (_) {}
+
+    try {
+      const { data, error } = await supabase
+        .from('payment_settings')
+        .select('upi_id, upi_qr_code_url, upi_number')
+        .limit(1)
+        .maybeSingle();
+      if (!error && data) {
+        setUpiDetails(data);
+        return;
+      }
+    } catch (_) {}
+
+    setUpiDetails(null);
+  };
+
+  const copyText = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: `${label} copied to clipboard` });
+    } catch {
+      toast({ title: "Error", description: `Failed to copy ${label}`, variant: "destructive" });
     }
   };
 
@@ -160,14 +181,24 @@ const Checkout = () => {
         size: item.variant?.size,
       }));
 
-      // Call secure edge function to create order with price validation
-      const { data, error } = await supabase.functions.invoke('create-order', {
-        body: {
-          items: orderItems,
-          shippingAddressId: selectedAddress,
-          paymentMethod: paymentMethod,
-        },
+      // Call secure edge function to create order with price validation (with fallback)
+      let { data, error } = await invokeFunction('create-order', {
+        items: orderItems,
+        shippingAddressId: selectedAddress,
+        paymentMethod: paymentMethod,
       });
+
+      if (error) {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('place_order', {
+          items: orderItems as any,
+          shipping_address_id: selectedAddress,
+          payment_method: paymentMethod,
+        });
+        if (rpcError) throw rpcError;
+        const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+        data = { success: true, orderId: row?.order_id, orderNumber: row?.order_number } as any;
+        error = undefined;
+      }
 
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
@@ -184,7 +215,29 @@ const Checkout = () => {
       setOrderData(order);
 
       if (paymentMethod === "upi") {
-        setStep(3);
+        if (paymentProof) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error("Not authenticated");
+          const fileExt = paymentProof.name.split(".").pop();
+          const fileName = `${user.id}/${order.id}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from("payment-proofs")
+            .upload(fileName, paymentProof);
+          if (uploadError) throw uploadError;
+          const { data: { publicUrl } } = supabase.storage
+            .from("payment-proofs")
+            .getPublicUrl(fileName);
+          const { error: updateError } = await supabase
+            .from("orders")
+            .update({ payment_proof_url: publicUrl, payment_status: "submitted" })
+            .eq("id", order.id);
+          if (updateError) throw updateError;
+          clearCart();
+          navigate("/account/orders");
+          toast({ title: "Order placed!", description: "Payment proof uploaded for verification" });
+        } else {
+          setStep(3);
+        }
       } else {
         clearCart();
         navigate("/account/orders");
@@ -227,7 +280,7 @@ const Checkout = () => {
 
       const { error: updateError } = await supabase
         .from("orders")
-        .update({ payment_proof_url: publicUrl })
+        .update({ payment_proof_url: publicUrl, payment_status: "submitted" })
         .eq("id", orderData.id);
 
       if (updateError) throw updateError;
@@ -443,6 +496,78 @@ const Checkout = () => {
                       </Label>
                     </div>
                   </RadioGroup>
+                  {paymentMethod === "upi" && (
+                    <div className="mt-6 p-4 border rounded">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="font-semibold">UPI Payment Details</p>
+                        <span className="text-sm text-muted-foreground">Amount: ₹{totalPrice.toFixed(2)}</span>
+                      </div>
+                      {upiDetails ? (
+                        <>
+                          {upiDetails.upi_qr_code_url && (
+                            <img
+                              src={upiDetails.upi_qr_code_url}
+                              alt="UPI QR Code"
+                              className="mx-auto max-w-xs rounded border mb-4"
+                            />
+                          )}
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            {upiDetails.upi_id && (
+                              <div className="flex items-center justify-between p-3 border rounded">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">UPI ID</p>
+                                  <p className="font-mono text-sm">{upiDetails.upi_id}</p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => copyText(upiDetails.upi_id, "UPI ID")}
+                                >
+                                  <Copy className="h-4 w-4 mr-1" /> Copy
+                                </Button>
+                              </div>
+                            )}
+                            {upiDetails.upi_number && (
+                              <div className="flex items-center justify-between p-3 border rounded">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">UPI Number</p>
+                                  <p className="font-mono text-sm">{upiDetails.upi_number}</p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => copyText(upiDetails.upi_number, "UPI Number")}
+                                >
+                                  <Copy className="h-4 w-4 mr-1" /> Copy
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-6 space-y-3">
+                            <p className="text-sm text-muted-foreground">Upload payment screenshot now (optional)</p>
+                            <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                                className="hidden"
+                                id="payment-proof-step2"
+                              />
+                              <Label htmlFor="payment-proof-step2" className="cursor-pointer inline-flex items-center gap-2">
+                                <Upload className="h-5 w-5 text-muted-foreground" />
+                                <span className="font-semibold">
+                                  {paymentProof ? paymentProof.name : "Click to upload screenshot"}
+                                </span>
+                              </Label>
+                              <p className="text-xs text-muted-foreground mt-2">PNG, JPG up to 10MB</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">UPI details are not configured. Please choose Cash on Delivery.</p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -491,17 +616,50 @@ const Checkout = () => {
                     <p className="mb-4 text-muted-foreground">
                       Scan the QR code below to pay ₹{totalPrice.toFixed(2)}
                     </p>
-                    {upiDetails.upi_qr_code_url ? (
+                    {upiDetails.upi_qr_code_url && (
                       <img
                         src={upiDetails.upi_qr_code_url}
                         alt="UPI QR Code"
-                        className="mx-auto max-w-xs rounded border"
+                        className="mx-auto max-w-xs rounded border mb-4"
                       />
-                    ) : (
-                      <div className="p-8 border rounded bg-muted">
-                        <p className="font-mono text-lg">{upiDetails.upi_id}</p>
-                      </div>
                     )}
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {upiDetails.upi_id && (
+                        <div className="flex items-center justify-between p-3 border rounded">
+                          <div>
+                            <p className="text-xs text-muted-foreground">UPI ID</p>
+                            <p className="font-mono text-sm">{upiDetails.upi_id}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyText(upiDetails.upi_id, "UPI ID")}
+                          >
+                            <Copy className="h-4 w-4 mr-1" /> Copy
+                          </Button>
+                        </div>
+                      )}
+                      {upiDetails.upi_number && (
+                        <div className="flex items-center justify-between p-3 border rounded">
+                          <div>
+                            <p className="text-xs text-muted-foreground">UPI Number</p>
+                            <p className="font-mono text-sm">{upiDetails.upi_number}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyText(upiDetails.upi_number, "UPI Number")}
+                          >
+                            <Copy className="h-4 w-4 mr-1" /> Copy
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {!upiDetails && (
+                  <div className="text-center p-6 border rounded">
+                    <p className="text-muted-foreground">UPI details are not configured. Please contact support or choose Cash on Delivery.</p>
                   </div>
                 )}
 

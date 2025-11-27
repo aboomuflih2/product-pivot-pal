@@ -23,6 +23,9 @@ interface Order {
   created_at: string;
   tracking_number: string | null;
   user_id: string;
+  payment_method: string | null;
+  payment_status: string | null;
+  payment_proof_url: string | null;
 }
 
 interface OrderItem {
@@ -42,9 +45,11 @@ const OrderManagement = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [newStatus, setNewStatus] = useState<string>("");
   const [trackingNumber, setTrackingNumber] = useState<string>("");
+  const [verifying, setVerifying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [shippingAddress, setShippingAddress] = useState<any | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -97,11 +102,31 @@ const OrderManagement = () => {
     }
   };
 
+  const fetchShippingAddress = async (addressId: string | null) => {
+    try {
+      if (!addressId) {
+        setShippingAddress(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("addresses")
+        .select("*")
+        .eq("id", addressId)
+        .maybeSingle();
+      if (error) throw error;
+      setShippingAddress(data || null);
+    } catch (error) {
+      console.error("Error fetching shipping address:", error);
+      setShippingAddress(null);
+    }
+  };
+
   const handleViewOrder = async (order: Order) => {
     setSelectedOrder(order);
     setNewStatus(order.status);
     setTrackingNumber(order.tracking_number || "");
     await fetchOrderDetails(order.id);
+    await fetchShippingAddress(order.shipping_address_id || null);
     setDialogOpen(true);
   };
 
@@ -136,6 +161,32 @@ const OrderManagement = () => {
         description: "Failed to update order",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleVerifyPayment = async (approved: boolean) => {
+    if (!selectedOrder) return;
+    setVerifying(true);
+    try {
+      const updateData: any = {
+        payment_status: approved ? "verified" : "rejected",
+      };
+      if (approved && selectedOrder.status === "pending") {
+        updateData.status = "processing";
+      }
+      const { error } = await supabase
+        .from("orders")
+        .update(updateData)
+        .eq("id", selectedOrder.id);
+      if (error) throw error;
+      toast({ title: approved ? "Payment verified" : "Payment rejected" });
+      setDialogOpen(false);
+      fetchOrders();
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      toast({ title: "Error", description: "Failed to update payment", variant: "destructive" });
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -200,6 +251,7 @@ const OrderManagement = () => {
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Tracking</TableHead>
+                      <TableHead>Payment</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -218,6 +270,12 @@ const OrderManagement = () => {
                           <TableCell>₹{Number(order.total_amount).toLocaleString()}</TableCell>
                           <TableCell>{getStatusBadge(order.status)}</TableCell>
                           <TableCell>{order.tracking_number || "-"}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div>{(order.payment_method || "").toUpperCase()}</div>
+                              <div className="text-muted-foreground">{order.payment_status || "-"}</div>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="outline"
@@ -256,6 +314,51 @@ const OrderManagement = () => {
                     <p className="text-sm font-medium">₹{Number(selectedOrder.total_amount).toLocaleString()}</p>
                   </div>
                 </div>
+
+                <div>
+                  <Label>Shipping Address</Label>
+                  <div className="mt-2 p-3 border rounded">
+                    {shippingAddress ? (
+                      <div className="text-sm">
+                        <p className="font-medium">{shippingAddress.full_name}</p>
+                        <p className="text-muted-foreground">
+                          {shippingAddress.address_line_1}
+                          {shippingAddress.address_line_2 ? `, ${shippingAddress.address_line_2}` : ""}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {shippingAddress.city}, {shippingAddress.state} - {shippingAddress.postal_code}
+                        </p>
+                        <p>{shippingAddress.phone}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No address available</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Payment Method</Label>
+                    <p className="text-sm">{selectedOrder.payment_method || "-"}</p>
+                  </div>
+                  <div>
+                    <Label>Payment Status</Label>
+                    <p className="text-sm">{selectedOrder.payment_status || "-"}</p>
+                  </div>
+                </div>
+
+                {selectedOrder.payment_method === "upi" && selectedOrder.payment_proof_url && (
+                  <div>
+                    <Label>Payment Proof</Label>
+                    <div className="mt-2">
+                      <img src={selectedOrder.payment_proof_url} alt="Payment proof" className="max-h-64 rounded border" />
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <Button onClick={() => handleVerifyPayment(true)} disabled={verifying}>Verify Payment</Button>
+                      <Button variant="outline" onClick={() => handleVerifyPayment(false)} disabled={verifying}>Reject</Button>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <Label>Order Items</Label>

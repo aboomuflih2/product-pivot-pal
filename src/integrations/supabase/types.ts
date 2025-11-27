@@ -207,6 +207,7 @@ export type Database = {
           id: string
           updated_at: string
           upi_id: string
+          upi_number: string | null
           upi_qr_code_url: string | null
         }
         Insert: {
@@ -214,6 +215,7 @@ export type Database = {
           id?: string
           updated_at?: string
           upi_id: string
+          upi_number?: string | null
           upi_qr_code_url?: string | null
         }
         Update: {
@@ -221,6 +223,7 @@ export type Database = {
           id?: string
           updated_at?: string
           upi_id?: string
+          upi_number?: string | null
           upi_qr_code_url?: string | null
         }
         Relationships: []

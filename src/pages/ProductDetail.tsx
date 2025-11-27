@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ShoppingCart, Heart, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/contexts/CartContext";
 
 interface Product {
   id: string;
@@ -50,6 +51,7 @@ interface Category {
 const ProductDetail = () => {
   const { id } = useParams();
   const { toast } = useToast();
+  const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
@@ -174,10 +176,23 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (currentStock === 0) return;
+    if (!product || !currentVariant) {
+      toast({
+        title: "Unable to add",
+        description: "Please select available options",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    toast({
-      title: "Added to cart!",
-      description: `${quantity}x ${product?.title} - ${selectedColor}, ${selectedSize}`,
+    addItem({
+      id: currentVariant.id,
+      name: product.title,
+      price: currentPrice,
+      image: primaryImage,
+      maxQuantity: currentStock,
+      variant: { color: selectedColor, size: selectedSize },
+      quantity,
     });
   };
 

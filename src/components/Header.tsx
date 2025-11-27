@@ -117,9 +117,6 @@ const Header = () => {
                     <DropdownMenuItem asChild>
                       <Link to="/account">My Account</Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/orders">My Orders</Link>
-                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                       <LogOut className="h-4 w-4 mr-2" />
