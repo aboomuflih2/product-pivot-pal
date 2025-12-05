@@ -352,7 +352,20 @@ const OrderManagement = () => {
                   <div>
                     <Label>Payment Proof</Label>
                     <div className="mt-2">
-                      <img src={selectedOrder.payment_proof_url} alt="Payment proof" className="max-h-64 rounded border" />
+                      <a 
+                        href={selectedOrder.payment_proof_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        download
+                        className="block"
+                      >
+                        <img 
+                          src={selectedOrder.payment_proof_url} 
+                          alt="Payment proof" 
+                          className="max-h-64 rounded border cursor-pointer hover:opacity-80 transition-opacity" 
+                        />
+                        <p className="text-sm text-muted-foreground mt-1">Click image to download</p>
+                      </a>
                     </div>
                     <div className="flex gap-2 mt-3">
                       <Button onClick={() => handleVerifyPayment(true)} disabled={verifying}>Verify Payment</Button>
