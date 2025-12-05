@@ -26,6 +26,7 @@ interface Order {
   payment_method: string | null;
   payment_status: string | null;
   payment_proof_url: string | null;
+  shipping_address_id: string | null;
 }
 
 interface OrderItem {

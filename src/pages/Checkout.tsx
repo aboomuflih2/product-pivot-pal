@@ -188,18 +188,6 @@ const Checkout = () => {
         paymentMethod: paymentMethod,
       });
 
-      if (error) {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('place_order', {
-          items: orderItems as any,
-          shipping_address_id: selectedAddress,
-          payment_method: paymentMethod,
-        });
-        if (rpcError) throw rpcError;
-        const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        data = { success: true, orderId: row?.order_id, orderNumber: row?.order_number } as any;
-        error = undefined;
-      }
-
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
 
