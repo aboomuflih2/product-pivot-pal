@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const schema = z.object({
   upi_id: z.string().min(3, "UPI ID is required"),
+  upi_number: z.string().min(10, "UPI mobile number must be at least 10 digits").optional().or(z.literal("")),
   upi_qr_code_url: z.string().url().optional().or(z.literal("").transform(() => undefined)),
 });
 
@@ -24,7 +25,7 @@ type PaymentForm = z.infer<typeof schema>;
 const PaymentSettings = () => {
   const form = useForm<PaymentForm>({
     resolver: zodResolver(schema),
-    defaultValues: { upi_id: "", upi_qr_code_url: undefined },
+    defaultValues: { upi_id: "", upi_number: "", upi_qr_code_url: undefined },
   });
   const [loading, setLoading] = useState(false);
   const [qrFile, setQrFile] = useState<File | null>(null);
@@ -37,15 +38,17 @@ const PaymentSettings = () => {
     try {
       const { data, error } = await supabase
         .from("payment_settings")
-        .select("upi_id, upi_qr_code_url, id")
+        .select("*")
         .limit(1)
         .maybeSingle();
 
       if (error) throw error;
       if (data) {
+        const settings = data as any;
         form.reset({
-          upi_id: data.upi_id || "",
-          upi_qr_code_url: data.upi_qr_code_url || undefined,
+          upi_id: settings.upi_id || "",
+          upi_number: settings.upi_number || "",
+          upi_qr_code_url: settings.upi_qr_code_url || undefined,
         });
       }
     } catch (err) {
@@ -73,7 +76,11 @@ const PaymentSettings = () => {
     setLoading(true);
     try {
       const upi_qr_code_url = await uploadQrIfNeeded();
-      const payload = { ...values, upi_qr_code_url };
+      const payload = { 
+        upi_id: values.upi_id, 
+        upi_number: values.upi_number || null,
+        upi_qr_code_url: upi_qr_code_url || null 
+      };
 
       const { data: existing } = await supabase
         .from("payment_settings")
@@ -84,13 +91,13 @@ const PaymentSettings = () => {
       if (existing?.id) {
         const { error } = await supabase
           .from("payment_settings")
-          .update(payload)
+          .update(payload as any)
           .eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("payment_settings")
-          .insert({ upi_id: payload.upi_id, upi_qr_code_url: payload.upi_qr_code_url || null });
+          .insert(payload as any);
         if (error) throw error;
       }
 
@@ -123,6 +130,20 @@ const PaymentSettings = () => {
                         <FormLabel>UPI ID</FormLabel>
                         <FormControl>
                           <Input placeholder="example@bank" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="upi_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>UPI Mobile Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="9876543210" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
