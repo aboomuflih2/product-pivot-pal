@@ -18,10 +18,8 @@ export default defineConfig(({ mode }) => ({
 }));
 ```
 
-**That's it!** Vite automatically loads `.env` files, so you don't need the `define` section at all.
-
-Now create a `.env` file in your project root folder with these values:
+**Step 2: Create `.env` file with YOUR NEW credentials:**
 ```
-VITE_SUPABASE_URL=https://pwkiqyejijezteeurluf.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3a2lxeWVqaWplenRlZXVybHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwMzI5NDUsImV4cCI6MjA3NTYwODk0NX0.Cvh7nd86igAdTECVfssKtNvfjdJurhIian7HZsBxuSY
-VITE_SUPABASE_PROJECT_ID=pwkiqyejijezteeurluf
+VITE_SUPABASE_URL=your_new_supabase_url_here
+VITE_SUPABASE_PUBLISHABLE_KEY=your_new_key_here
+VITE_SUPABASE_PROJECT_ID=your_new_project_id_here
