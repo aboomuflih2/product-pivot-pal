@@ -15,9 +15,4 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  define: {
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://pwkiqyejijezteeurluf.supabase.co'),
-    'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3a2lxeWVqaWplenRlZXVybHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwMzI5NDUsImV4cCI6MjA3NTYwODk0NX0.Cvh7nd86igAdTECVfssKtNvfjdJurhIian7HZsBxuSY'),
-    'import.meta.env.VITE_SUPABASE_PROJECT_ID': JSON.stringify('pwkiqyejijezteeurluf'),
-  },
 }));
