@@ -1,1 +1,10 @@
 project_id = "pwkiqyejijezteeurluf"
+
+[functions.create-order]
+verify_jwt = true
+
+[functions.get-payment-settings]
+verify_jwt = false
+
+[functions.social-meta]
+verify_jwt = false
