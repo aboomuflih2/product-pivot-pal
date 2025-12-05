@@ -13,10 +13,13 @@ serve(async (req) => {
   }
 
   try {
+    // Use service role key to bypass RLS - payment settings need to be readable by customers
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    console.log('Fetching payment settings...');
 
     const { data, error } = await supabaseClient
       .from('payment_settings')
@@ -26,8 +29,9 @@ serve(async (req) => {
 
     if (error) {
       console.error('Error fetching payment settings:', error);
-      // Fall through to return a safe empty payload
     }
+
+    console.log('Payment settings data:', data);
 
     const payload = data ?? { upi_id: null, upi_qr_code_url: null, upi_number: null };
 
