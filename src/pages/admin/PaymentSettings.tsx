@@ -16,7 +16,6 @@ import { toast } from "@/hooks/use-toast";
 
 const schema = z.object({
   upi_id: z.string().min(3, "UPI ID is required"),
-  upi_number: z.string().min(5, "UPI number is required"),
   upi_qr_code_url: z.string().url().optional().or(z.literal("").transform(() => undefined)),
 });
 
@@ -25,7 +24,7 @@ type PaymentForm = z.infer<typeof schema>;
 const PaymentSettings = () => {
   const form = useForm<PaymentForm>({
     resolver: zodResolver(schema),
-    defaultValues: { upi_id: "", upi_number: "", upi_qr_code_url: undefined },
+    defaultValues: { upi_id: "", upi_qr_code_url: undefined },
   });
   const [loading, setLoading] = useState(false);
   const [qrFile, setQrFile] = useState<File | null>(null);
@@ -38,7 +37,7 @@ const PaymentSettings = () => {
     try {
       const { data, error } = await supabase
         .from("payment_settings")
-        .select("upi_id, upi_number, upi_qr_code_url, id")
+        .select("upi_id, upi_qr_code_url, id")
         .limit(1)
         .maybeSingle();
 
@@ -46,7 +45,6 @@ const PaymentSettings = () => {
       if (data) {
         form.reset({
           upi_id: data.upi_id || "",
-          upi_number: data.upi_number || "",
           upi_qr_code_url: data.upi_qr_code_url || undefined,
         });
       }
@@ -92,7 +90,7 @@ const PaymentSettings = () => {
       } else {
         const { error } = await supabase
           .from("payment_settings")
-          .insert(payload);
+          .insert({ upi_id: payload.upi_id, upi_qr_code_url: payload.upi_qr_code_url || null });
         if (error) throw error;
       }
 
@@ -125,20 +123,6 @@ const PaymentSettings = () => {
                         <FormLabel>UPI ID</FormLabel>
                         <FormControl>
                           <Input placeholder="example@bank" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="upi_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>UPI Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="1234567890" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
