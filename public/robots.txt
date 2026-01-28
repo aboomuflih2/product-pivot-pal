@@ -12,3 +12,14 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# Disallow admin pages from being indexed
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /checkout
+Disallow: /cart
+
+# Sitemap
+Sitemap: https://911clothings.com/sitemap.xml

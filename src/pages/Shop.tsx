@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FilterSidebar from "@/components/shop/FilterSidebar";
@@ -69,9 +70,9 @@ const Shop = () => {
         id: product.id,
         name: product.title,
         price: product.product_variants?.[0]?.price || 0,
-        image: product.product_images?.find((img) => img.is_primary)?.image_url || 
-               product.product_images?.[0]?.image_url || 
-               "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400&h=400&fit=crop",
+        image: product.product_images?.find((img) => img.is_primary)?.image_url ||
+          product.product_images?.[0]?.image_url ||
+          "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400&h=400&fit=crop",
         category: product.categories?.name || "Uncategorized",
         categorySlug: product.categories?.slug,
         variants: product.product_variants || [],
@@ -140,10 +141,28 @@ const Shop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const categoryParam = searchParams.get("category");
+  const pageTitle = categoryParam
+    ? `${categoryParam.charAt(0).toUpperCase() + categoryParam.slice(1)} - Shop | 911 Clothings`
+    : "Shop Kids Clothing & Toys | 911 Clothings";
+  const pageDescription = categoryParam
+    ? `Browse our ${categoryParam} collection. Premium imported kids clothing and accessories at 911 Clothings.`
+    : "Browse our complete collection of imported kids clothing, toys, and accessories. Quality products for newborns, toddlers, and children.";
+
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
+        <link rel="canonical" href={`https://911clothings.com/shop${categoryParam ? `?category=${categoryParam}` : ''}`} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:url" content={`https://911clothings.com/shop${categoryParam ? `?category=${categoryParam}` : ''}`} />
+        <meta property="og:type" content="website" />
+      </Helmet>
+
       <Header />
-      
+
       <main className="flex-1">
         {/* Page Header */}
         <div className="bg-muted/30 border-b border-border">
@@ -188,7 +207,7 @@ const Shop = () => {
                   <SheetContent side="left" className="p-0 w-80">
                     <FilterSidebar
                       isMobile
-                      onClose={() => {}}
+                      onClose={() => { }}
                       selectedCategories={selectedCategories}
                       setSelectedCategories={setSelectedCategories}
                       priceRange={priceRange}

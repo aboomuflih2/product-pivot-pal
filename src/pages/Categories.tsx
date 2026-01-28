@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -52,6 +53,16 @@ const Categories = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet>
+        <title>Kids Clothing Categories | 911 Clothings</title>
+        <meta name="description" content="Browse our collection of premium kids clothing and toys by category. Find the perfect outfits for newborns, toddlers, and children." />
+        <link rel="canonical" href="https://911clothings.com/categories" />
+        <meta property="og:title" content="Kids Clothing Categories | 911 Clothings" />
+        <meta property="og:description" content="Browse our collection of premium kids clothing and toys by category." />
+        <meta property="og:url" content="https://911clothings.com/categories" />
+        <meta property="og:type" content="website" />
+      </Helmet>
+
       <Header />
       <main className="flex-1">
         <section className="py-12 md:py-16 bg-muted/30">

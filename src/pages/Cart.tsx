@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
@@ -29,6 +30,11 @@ const Cart = () => {
   if (items.length === 0) {
     return (
       <>
+        <Helmet>
+          <title>Shopping Cart | 911 Clothings</title>
+          <meta name="description" content="View and manage your shopping cart at 911 Clothings." />
+          <meta name="robots" content="noindex, follow" />
+        </Helmet>
         <Header />
         <main className="min-h-screen bg-background">
           <div className="container mx-auto px-4 py-16">
@@ -51,6 +57,11 @@ const Cart = () => {
 
   return (
     <>
+      <Helmet>
+        <title>Shopping Cart ({items.length} items) | 911 Clothings</title>
+        <meta name="description" content="Review your shopping cart and proceed to checkout." />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
       <Header />
       <main className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">

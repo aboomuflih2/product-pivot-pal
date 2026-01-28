@@ -155,9 +155,9 @@ const ProductDetail = () => {
 
   const currentPrice = currentVariant?.price || 0;
   const currentStock = currentVariant?.stock_quantity || 0;
-  
+
   // Get image URLs - prioritize variant image if selected, then product images
-  const imageUrls = currentVariant?.image_url 
+  const imageUrls = currentVariant?.image_url
     ? [currentVariant.image_url, ...images.map(img => img.image_url)]
     : images.map(img => img.image_url);
 
@@ -222,23 +222,48 @@ const ProductDetail = () => {
 
   const currentUrl = window.location.href;
   // Ensure image URL is absolute for social media sharing
-  const primaryImage = imageUrls[0] 
+  const primaryImage = imageUrls[0]
     ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `${window.location.origin}${imageUrls[0]}`)
     : `${window.location.origin}/placeholder.svg`;
   const productDescription = product.description || `${product.title} - Premium quality product from 911 Clothings`;
+
+  // JSON-LD structured data for rich search results
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.title,
+    "image": primaryImage,
+    "description": productDescription,
+    "brand": {
+      "@type": "Brand",
+      "name": "911 Clothings"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": currentUrl,
+      "priceCurrency": "INR",
+      "price": currentPrice,
+      "availability": currentStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "911 Clothings"
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
       <Helmet>
         <title>{product.title} - 911 Clothings</title>
         <meta name="description" content={productDescription} />
-        
+        <link rel="canonical" href={`https://911clothings.com/product/${id}`} />
+
         {/* Open Graph tags for Facebook, WhatsApp, LinkedIn */}
         <meta property="og:type" content="product" />
         <meta property="og:title" content={product.title} />
         <meta property="og:description" content={productDescription} />
         <meta property="og:url" content={currentUrl} />
-        
+
         {/* Image tags - CRITICAL for WhatsApp */}
         <meta property="og:image" content={primaryImage} />
         <meta property="og:image:secure_url" content={primaryImage} />
@@ -246,17 +271,22 @@ const ProductDetail = () => {
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:image:alt" content={product.title} />
-        
+
         {/* Product-specific tags */}
         <meta property="og:price:amount" content={currentPrice.toString()} />
         <meta property="og:price:currency" content="INR" />
-        
+
         {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={product.title} />
         <meta name="twitter:description" content={productDescription} />
         <meta name="twitter:image" content={primaryImage} />
         <meta name="twitter:image:alt" content={product.title} />
+
+        {/* JSON-LD Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(productJsonLd)}
+        </script>
       </Helmet>
 
       <Header />

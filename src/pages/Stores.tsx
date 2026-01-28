@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -111,6 +112,16 @@ const Stores = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet>
+        <title>Our Showrooms & Store Locations | 911 Clothings</title>
+        <meta name="description" content="Find 911 Clothings store locations near you. Visit our showrooms to explore premium imported kids clothing and toys in person." />
+        <link rel="canonical" href="https://911clothings.com/stores" />
+        <meta property="og:title" content="Our Showrooms | 911 Clothings" />
+        <meta property="og:description" content="Find 911 Clothings store locations near you." />
+        <meta property="og:url" content="https://911clothings.com/stores" />
+        <meta property="og:type" content="website" />
+      </Helmet>
+
       <Header />
       <main className="flex-1">
         <section className="bg-gradient-to-b from-primary/10 to-background py-16">
