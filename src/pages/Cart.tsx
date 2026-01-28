@@ -58,7 +58,7 @@ const Cart = () => {
   return (
     <>
       <Helmet>
-        <title>Shopping Cart ({items.length} items) | 911 Clothings</title>
+        <title>{`Shopping Cart (${items.length} items) | 911 Clothings`}</title>
         <meta name="description" content="Review your shopping cart and proceed to checkout." />
         <meta name="robots" content="noindex, follow" />
       </Helmet>
