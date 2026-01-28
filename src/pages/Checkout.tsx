@@ -441,7 +441,23 @@ const Checkout = () => {
                 <CardTitle>Shipping Address</CardTitle>
               </CardHeader>
               <CardContent>
-                {savedAddresses.length > 0 && !useNewAddress ? (
+                {savedAddresses.length === 0 && !useNewAddress ? (
+                  <div className="text-center py-8 space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold">No delivery address found</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      Please add a delivery address to continue with your order. This is required for shipping your items.
+                    </p>
+                    <Button onClick={() => setUseNewAddress(true)} className="mt-4">
+                      Add Delivery Address
+                    </Button>
+                  </div>
+                ) : savedAddresses.length > 0 && !useNewAddress ? (
                   <div className="space-y-4">
                     <RadioGroup value={selectedAddress || ""} onValueChange={setSelectedAddress}>
                       {savedAddresses.map((addr) => (

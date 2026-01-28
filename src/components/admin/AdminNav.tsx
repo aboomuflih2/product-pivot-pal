@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, ShoppingCart, FolderTree, Store, CreditCard } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, FolderTree, Store, CreditCard, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const AdminNav = () => {
@@ -8,6 +8,7 @@ const AdminNav = () => {
   const navItems = [
     { name: "Dashboard", path: "/admin", icon: LayoutDashboard },
     { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
+    { name: "Users", path: "/admin/users", icon: Users },
     { name: "Products", path: "/admin/products", icon: Package },
     { name: "Categories", path: "/admin/categories", icon: FolderTree },
     { name: "Stores", path: "/admin/stores", icon: Store },
@@ -21,7 +22,7 @@ const AdminNav = () => {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            
+
             return (
               <Link
                 key={item.path}

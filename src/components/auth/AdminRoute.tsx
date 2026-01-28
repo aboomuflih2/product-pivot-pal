@@ -19,7 +19,8 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
   const checkAdminAccess = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
+      // If not logged in at all, redirect to auth with return path
       if (!session?.user) {
         navigate("/auth", { state: { from: window.location.pathname } });
         return;
@@ -34,15 +35,17 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
 
       if (error) throw error;
 
+      // If logged in but NOT an admin, redirect to home (not auth, to avoid loop)
       if (!data) {
-        navigate("/auth", { state: { from: window.location.pathname } });
+        navigate("/", { replace: true });
         return;
       }
 
       setIsAdmin(true);
     } catch (error) {
       console.error("Error checking admin access:", error);
-      navigate("/auth", { state: { from: window.location.pathname } });
+      // On error, redirect to home to be safe
+      navigate("/", { replace: true });
     } finally {
       setLoading(false);
     }

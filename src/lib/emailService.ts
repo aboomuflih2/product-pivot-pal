@@ -1,6 +1,6 @@
 /**
  * Email Service for 911 Clothings
- * Sends order emails via the email-api service
+ * Sends order emails via the Express email-api service
  */
 
 interface OrderItem {
@@ -40,9 +40,13 @@ const EMAIL_API_URL = import.meta.env.VITE_EMAIL_API_URL || 'http://localhost:30
 
 /**
  * Send both customer and admin emails for a new order
+ * Uses Express email-api service
  */
 export async function sendOrderEmails(data: OrderEmailData): Promise<{ customer: boolean; admin: boolean }> {
   try {
+    console.log('Sending order emails via Express API...');
+    console.log('Email API URL:', EMAIL_API_URL);
+
     const response = await fetch(`${EMAIL_API_URL}/send-order-emails`, {
       method: 'POST',
       headers: {

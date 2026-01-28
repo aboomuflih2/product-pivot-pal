@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Phone, Mail } from "lucide-react";
 
 interface Order {
   id: string;
@@ -51,6 +53,17 @@ const OrderManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
   const [shippingAddress, setShippingAddress] = useState<any | null>(null);
+  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    full_name: "",
+    phone: "",
+    address_line_1: "",
+    address_line_2: "",
+    city: "",
+    state: "",
+    postal_code: "",
+  });
 
   useEffect(() => {
     fetchOrders();
@@ -122,12 +135,44 @@ const OrderManagement = () => {
     }
   };
 
+  const fetchCustomerEmail = async (userId: string) => {
+    try {
+      // Fetch email from profiles table (if stored there) or use RPC
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", userId)
+        .maybeSingle();
+
+      // Since email is in auth.users, we need to get it from there via RPC or store it
+      // For now, we'll check if the user has a profile and use the order's user_id
+      // This will be fetched via the get_all_users_for_admin RPC if needed
+      if (error) throw error;
+
+      // Try to get email from user_roles or profiles
+      // @ts-ignore - RPC is defined in database but not in generated types
+      const { data: userData } = await supabase.rpc('get_all_users_for_admin');
+      if (userData && Array.isArray(userData)) {
+        const user = userData.find((u: any) => u.user_id === userId);
+        if (user) {
+          setCustomerEmail(user.email);
+          return;
+        }
+      }
+      setCustomerEmail(null);
+    } catch (error) {
+      console.error("Error fetching customer email:", error);
+      setCustomerEmail(null);
+    }
+  };
+
   const handleViewOrder = async (order: Order) => {
     setSelectedOrder(order);
     setNewStatus(order.status);
     setTrackingNumber(order.tracking_number || "");
     await fetchOrderDetails(order.id);
     await fetchShippingAddress(order.shipping_address_id || null);
+    await fetchCustomerEmail(order.user_id);
     setDialogOpen(true);
   };
 
@@ -136,7 +181,7 @@ const OrderManagement = () => {
 
     try {
       const updateData: any = { status: newStatus };
-      
+
       if (newStatus === "shipped" && trackingNumber) {
         updateData.tracking_number = trackingNumber;
       }
@@ -191,6 +236,69 @@ const OrderManagement = () => {
     }
   };
 
+  const handleSaveAddress = async () => {
+    if (!selectedOrder) return;
+
+    // Validate required fields
+    if (!addressForm.full_name || !addressForm.phone || !addressForm.address_line_1 ||
+      !addressForm.city || !addressForm.state || !addressForm.postal_code) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required address fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create new address for the order's user
+      const { data: newAddress, error: addressError } = await supabase
+        .from("addresses")
+        .insert({
+          user_id: selectedOrder.user_id,
+          label: "Order Address",
+          full_name: addressForm.full_name,
+          phone: addressForm.phone,
+          address_line_1: addressForm.address_line_1,
+          address_line_2: addressForm.address_line_2 || null,
+          city: addressForm.city,
+          state: addressForm.state,
+          postal_code: addressForm.postal_code,
+          country: "India",
+          is_default: false,
+        })
+        .select()
+        .single();
+
+      if (addressError) throw addressError;
+
+      // Update the order with the new address
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update({ shipping_address_id: newAddress.id })
+        .eq("id", selectedOrder.id);
+
+      if (orderError) throw orderError;
+
+      toast({
+        title: "Success",
+        description: "Shipping address saved successfully",
+      });
+
+      // Refresh the address display
+      setShippingAddress(newAddress);
+      setEditingAddress(false);
+      fetchOrders();
+    } catch (error) {
+      console.error("Error saving address:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save address",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       pending: "outline",
@@ -215,7 +323,7 @@ const OrderManagement = () => {
         <main className="flex-1 container mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-4">Order Management</h1>
-            
+
             <div className="flex gap-4 mb-6">
               <div className="w-64">
                 <Label>Filter by Status</Label>
@@ -302,7 +410,7 @@ const OrderManagement = () => {
             <DialogHeader>
               <DialogTitle>Order Details - {selectedOrder?.order_number}</DialogTitle>
             </DialogHeader>
-            
+
             {selectedOrder && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -317,10 +425,112 @@ const OrderManagement = () => {
                 </div>
 
                 <div>
-                  <Label>Shipping Address</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Shipping Address</Label>
+                    {!editingAddress && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingAddress(true);
+                          if (shippingAddress) {
+                            setAddressForm({
+                              full_name: shippingAddress.full_name || "",
+                              phone: shippingAddress.phone || "",
+                              address_line_1: shippingAddress.address_line_1 || "",
+                              address_line_2: shippingAddress.address_line_2 || "",
+                              city: shippingAddress.city || "",
+                              state: shippingAddress.state || "",
+                              postal_code: shippingAddress.postal_code || "",
+                            });
+                          } else {
+                            setAddressForm({
+                              full_name: "",
+                              phone: "",
+                              address_line_1: "",
+                              address_line_2: "",
+                              city: "",
+                              state: "",
+                              postal_code: "",
+                            });
+                          }
+                        }}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        {shippingAddress ? "Edit" : "Add Address"}
+                      </Button>
+                    )}
+                  </div>
                   <div className="mt-2 p-3 border rounded">
-                    {shippingAddress ? (
-                      <div className="text-sm">
+                    {editingAddress ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Full Name *</Label>
+                            <Input
+                              value={addressForm.full_name}
+                              onChange={(e) => setAddressForm({ ...addressForm, full_name: e.target.value })}
+                              placeholder="Full Name"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Phone *</Label>
+                            <Input
+                              value={addressForm.phone}
+                              onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
+                              placeholder="Phone Number"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Address Line 1 *</Label>
+                          <Input
+                            value={addressForm.address_line_1}
+                            onChange={(e) => setAddressForm({ ...addressForm, address_line_1: e.target.value })}
+                            placeholder="Street Address"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Address Line 2</Label>
+                          <Input
+                            value={addressForm.address_line_2}
+                            onChange={(e) => setAddressForm({ ...addressForm, address_line_2: e.target.value })}
+                            placeholder="Apartment, suite, etc. (optional)"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label className="text-xs">City *</Label>
+                            <Input
+                              value={addressForm.city}
+                              onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                              placeholder="City"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">State *</Label>
+                            <Input
+                              value={addressForm.state}
+                              onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })}
+                              placeholder="State"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Postal Code *</Label>
+                            <Input
+                              value={addressForm.postal_code}
+                              onChange={(e) => setAddressForm({ ...addressForm, postal_code: e.target.value })}
+                              placeholder="PIN Code"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <Button size="sm" onClick={handleSaveAddress}>Save Address</Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingAddress(false)}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : shippingAddress ? (
+                      <div className="text-sm space-y-1">
                         <p className="font-medium">{shippingAddress.full_name}</p>
                         <p className="text-muted-foreground">
                           {shippingAddress.address_line_1}
@@ -329,10 +539,29 @@ const OrderManagement = () => {
                         <p className="text-muted-foreground">
                           {shippingAddress.city}, {shippingAddress.state} - {shippingAddress.postal_code}
                         </p>
-                        <p>{shippingAddress.phone}</p>
+                        <div className="flex items-center gap-4 pt-2">
+                          {shippingAddress.phone && (
+                            <a
+                              href={`tel:${shippingAddress.phone}`}
+                              className="flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <Phone className="h-4 w-4" />
+                              {shippingAddress.phone}
+                            </a>
+                          )}
+                          {customerEmail && (
+                            <a
+                              href={`mailto:${customerEmail}`}
+                              className="flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <Mail className="h-4 w-4" />
+                              {customerEmail}
+                            </a>
+                          )}
+                        </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No address available</p>
+                      <p className="text-sm text-muted-foreground">No address available - Click "Add Address" to add one</p>
                     )}
                   </div>
                 </div>
@@ -352,17 +581,17 @@ const OrderManagement = () => {
                   <div>
                     <Label>Payment Proof</Label>
                     <div className="mt-2">
-                      <a 
-                        href={selectedOrder.payment_proof_url} 
-                        target="_blank" 
+                      <a
+                        href={selectedOrder.payment_proof_url}
+                        target="_blank"
                         rel="noopener noreferrer"
                         download
                         className="block"
                       >
-                        <img 
-                          src={selectedOrder.payment_proof_url} 
-                          alt="Payment proof" 
-                          className="max-h-64 rounded border cursor-pointer hover:opacity-80 transition-opacity" 
+                        <img
+                          src={selectedOrder.payment_proof_url}
+                          alt="Payment proof"
+                          className="max-h-64 rounded border cursor-pointer hover:opacity-80 transition-opacity"
                         />
                         <p className="text-sm text-muted-foreground mt-1">Click image to download</p>
                       </a>

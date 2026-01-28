@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,11 @@ const signUpSchema = z.object({
     .trim()
     .min(1, "Last name is required")
     .max(50, "Last name must be less than 50 characters"),
+  phone: z.string()
+    .trim()
+    .min(10, "Phone number must be at least 10 digits")
+    .max(15, "Phone number must be less than 15 digits")
+    .regex(/^[0-9+\-\s]+$/, "Invalid phone number format"),
   email: z.string()
     .trim()
     .email("Invalid email address")
@@ -48,10 +53,15 @@ const resetPasswordSchema = z.object({
 
 const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Get the intended destination from location state (e.g., from AdminRoute redirect)
+  // Using useRef to avoid re-computation on re-renders
+  const fromRef = useRef((location.state as { from?: string })?.from || "/");
 
   // Sign Up Form State
   const [signUpData, setSignUpData] = useState({
@@ -59,6 +69,7 @@ const Auth = () => {
     lastName: "",
     email: "",
     password: "",
+    phone: "",
   });
 
   // Sign In Form State
@@ -77,12 +88,10 @@ const Auth = () => {
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // Redirect on successful login
-      if (session?.user) {
-        setTimeout(() => {
-          navigate("/");
-        }, 0);
+
+      // Only redirect on actual sign in event, not on every state change
+      if (event === 'SIGNED_IN' && session?.user) {
+        navigate(fromRef.current, { replace: true });
       }
     });
 
@@ -90,9 +99,10 @@ const Auth = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
+      // If already logged in, redirect away from auth page
       if (session?.user) {
-        navigate("/");
+        navigate(fromRef.current, { replace: true });
       }
     });
 
@@ -117,6 +127,7 @@ const Auth = () => {
           data: {
             first_name: validatedData.firstName,
             last_name: validatedData.lastName,
+            phone: validatedData.phone,
           },
         },
       });
@@ -144,7 +155,7 @@ const Auth = () => {
       });
 
       // Clear form
-      setSignUpData({ firstName: "", lastName: "", email: "", password: "" });
+      setSignUpData({ firstName: "", lastName: "", email: "", password: "", phone: "" });
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -361,6 +372,22 @@ const Auth = () => {
                         required
                       />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-phone">Phone Number</Label>
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      placeholder="9876543210"
+                      value={signUpData.phone}
+                      onChange={(e) =>
+                        setSignUpData({ ...signUpData, phone: e.target.value })
+                      }
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Mobile number is required for order updates
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
