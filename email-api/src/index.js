@@ -17,67 +17,67 @@ app.use(express.json());
 
 // Helper functions
 function formatCurrency(amount) {
-    return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+  return new Date(dateString).toLocaleDateString('en-IN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 async function sendEmail(to, subject, htmlBody) {
-    if (!ZEPTOMAIL_API_KEY) {
-        console.error('ZeptoMail API key not configured');
-        return false;
-    }
+  if (!ZEPTOMAIL_API_KEY) {
+    console.error('ZeptoMail API key not configured');
+    return false;
+  }
 
-    try {
-        const response = await fetch(ZEPTOMAIL_API_URL, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Zoho-enczapikey ${ZEPTOMAIL_API_KEY}`,
+  try {
+    const response = await fetch(ZEPTOMAIL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Zoho-enczapikey ${ZEPTOMAIL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: {
+          address: SENDER_EMAIL,
+          name: SENDER_NAME,
+        },
+        to: [
+          {
+            email_address: {
+              address: to.email,
+              name: to.name,
             },
-            body: JSON.stringify({
-                from: {
-                    address: SENDER_EMAIL,
-                    name: SENDER_NAME,
-                },
-                to: [
-                    {
-                        email_address: {
-                            address: to.email,
-                            name: to.name,
-                        },
-                    },
-                ],
-                subject,
-                htmlbody: htmlBody,
-            }),
-        });
+          },
+        ],
+        subject,
+        htmlbody: htmlBody,
+      }),
+    });
 
-        if (!response.ok) {
-            const error = await response.text();
-            console.error('ZeptoMail API error:', error);
-            return false;
-        }
-
-        console.log(`Email sent successfully to ${to.email}`);
-        return true;
-    } catch (error) {
-        console.error('Failed to send email:', error);
-        return false;
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('ZeptoMail API error:', error);
+      return false;
     }
+
+    console.log(`Email sent successfully to ${to.email}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    return false;
+  }
 }
 
 function generateCustomerEmailHtml(data) {
-    const itemsHtml = data.items.map(item => `
+  const itemsHtml = data.items.map(item => `
     <tr>
       <td style="padding: 12px; border-bottom: 1px solid #eee;">
         ${item.product_name}
@@ -89,9 +89,9 @@ function generateCustomerEmailHtml(data) {
     </tr>
   `).join('');
 
-    const paymentMethodLabel = data.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Payment';
+  const paymentMethodLabel = data.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Payment';
 
-    return `
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -174,7 +174,7 @@ function generateCustomerEmailHtml(data) {
 }
 
 function generateAdminEmailHtml(data) {
-    const itemsHtml = data.items.map(item => `
+  const itemsHtml = data.items.map(item => `
     <tr>
       <td style="padding: 10px; border: 1px solid #ddd;">${item.product_name}</td>
       <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.variant_color || '-'} / ${item.variant_size || '-'}</td>
@@ -184,10 +184,10 @@ function generateAdminEmailHtml(data) {
     </tr>
   `).join('');
 
-    const paymentMethodLabel = data.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Payment';
-    const paymentStatusColor = data.paymentStatus === 'submitted' ? '#28a745' : '#ffc107';
+  const paymentMethodLabel = data.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Payment';
+  const paymentStatusColor = data.paymentStatus === 'submitted' ? '#28a745' : '#ffc107';
 
-    return `
+  return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -259,53 +259,58 @@ function generateAdminEmailHtml(data) {
 </html>`;
 }
 
+// Root endpoint for Coolify healthcheck (checks / by default)
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'email-api' });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'email-api' });
+  res.json({ status: 'ok', service: 'email-api' });
 });
 
 // Send order emails endpoint
 app.post('/send-order-emails', async (req, res) => {
-    try {
-        const data = req.body;
+  try {
+    const data = req.body;
 
-        if (!data || !data.orderNumber || !data.customerEmail) {
-            return res.status(400).json({ success: false, error: 'Missing required fields' });
-        }
-
-        // Send customer email
-        const customerSubject = `Order Confirmed - #${data.orderNumber}`;
-        const customerHtml = generateCustomerEmailHtml(data);
-        const customerResult = await sendEmail(
-            { email: data.customerEmail, name: data.customerName },
-            customerSubject,
-            customerHtml
-        );
-
-        // Send admin email
-        const adminSubject = `🛒 New Order Received - #${data.orderNumber}`;
-        const adminHtml = generateAdminEmailHtml(data);
-        const adminResult = await sendEmail(
-            { email: ADMIN_EMAIL, name: '911 Clothings Admin' },
-            adminSubject,
-            adminHtml
-        );
-
-        res.json({
-            success: true,
-            customer: customerResult,
-            admin: adminResult
-        });
-    } catch (error) {
-        console.error('Error in send-order-emails:', error);
-        res.status(500).json({ success: false, error: String(error) });
+    if (!data || !data.orderNumber || !data.customerEmail) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
+
+    // Send customer email
+    const customerSubject = `Order Confirmed - #${data.orderNumber}`;
+    const customerHtml = generateCustomerEmailHtml(data);
+    const customerResult = await sendEmail(
+      { email: data.customerEmail, name: data.customerName },
+      customerSubject,
+      customerHtml
+    );
+
+    // Send admin email
+    const adminSubject = `🛒 New Order Received - #${data.orderNumber}`;
+    const adminHtml = generateAdminEmailHtml(data);
+    const adminResult = await sendEmail(
+      { email: ADMIN_EMAIL, name: '911 Clothings Admin' },
+      adminSubject,
+      adminHtml
+    );
+
+    res.json({
+      success: true,
+      customer: customerResult,
+      admin: adminResult
+    });
+  } catch (error) {
+    console.error('Error in send-order-emails:', error);
+    res.status(500).json({ success: false, error: String(error) });
+  }
 });
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Email API server running on port ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
-    console.log(`ZeptoMail API Key configured: ${ZEPTOMAIL_API_KEY ? 'Yes' : 'No'}`);
-    console.log(`Admin email: ${ADMIN_EMAIL}`);
+  console.log(`Email API server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`ZeptoMail API Key configured: ${ZEPTOMAIL_API_KEY ? 'Yes' : 'No'}`);
+  console.log(`Admin email: ${ADMIN_EMAIL}`);
 });
