@@ -269,6 +269,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'email-api' });
 });
 
+// Debug endpoint to check configuration
+app.get('/debug', (req, res) => {
+  res.json({
+    zeptoMailKeyConfigured: !!ZEPTOMAIL_API_KEY,
+    zeptoMailKeyLength: ZEPTOMAIL_API_KEY ? ZEPTOMAIL_API_KEY.length : 0,
+    zeptoMailKeyPrefix: ZEPTOMAIL_API_KEY ? ZEPTOMAIL_API_KEY.substring(0, 10) + '...' : 'NOT SET',
+    adminEmail: ADMIN_EMAIL,
+    senderEmail: SENDER_EMAIL
+  });
+});
+
 // Send order emails endpoint
 app.post('/send-order-emails', async (req, res) => {
   try {
