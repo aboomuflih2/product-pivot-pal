@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
-import { invokeFunction } from "@/lib/functions";
+import { sendOrderEmails, OrderEmailData } from "@/lib/emailService";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ const Checkout = () => {
         setUpiDetails(data);
         return;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       const { data, error } = await supabase
@@ -102,7 +102,7 @@ const Checkout = () => {
         setUpiDetails(data);
         return;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     setUpiDetails(null);
   };
@@ -181,17 +181,25 @@ const Checkout = () => {
         size: item.variant?.size,
       }));
 
-      // Call secure edge function to create order with price validation (with fallback)
-      let { data, error } = await invokeFunction('create-order', {
+      // Use RPC to create order (bypasses Edge Functions)
+      // @ts-ignore - place_order RPC is defined in database but not in generated types
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('place_order', {
         items: orderItems,
-        shippingAddressId: selectedAddress,
-        paymentMethod: paymentMethod,
+        shipping_address_id: selectedAddress,
+        payment_method: paymentMethod,
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (rpcError) throw rpcError;
+      if (!rpcResult || !Array.isArray(rpcResult) || rpcResult.length === 0) throw new Error('Failed to create order');
 
-      // Fetch the created order
+      const data = {
+        success: true,
+        orderId: rpcResult[0].order_id,
+        orderNumber: rpcResult[0].order_number,
+        totalAmount: rpcResult[0].total_amount,
+      };
+
+      // Fetch the created order with items and address
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .select()
@@ -200,7 +208,60 @@ const Checkout = () => {
 
       if (orderError) throw orderError;
 
+      // Fetch order items
+      const { data: orderItemsData } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", data.orderId);
+
+      // Fetch shipping address
+      const { data: shippingAddr } = await supabase
+        .from("addresses")
+        .select("*")
+        .eq("id", selectedAddress)
+        .single();
+
       setOrderData(order);
+
+      // Helper function to send order emails
+      const sendEmails = async (paymentStatus: string) => {
+        if (!shippingAddr) return;
+
+        const emailData: OrderEmailData = {
+          orderNumber: data.orderNumber,
+          orderDate: order.created_at,
+          customerName: shippingAddr.full_name,
+          customerEmail: session.user.email || '',
+          paymentMethod: paymentMethod,
+          paymentStatus: paymentStatus,
+          totalAmount: data.totalAmount,
+          items: (orderItemsData || []).map((item: any) => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            variant_color: item.variant_color,
+            variant_size: item.variant_size,
+          })),
+          shippingAddress: {
+            full_name: shippingAddr.full_name,
+            phone: shippingAddr.phone,
+            address_line_1: shippingAddr.address_line_1,
+            address_line_2: shippingAddr.address_line_2,
+            city: shippingAddr.city,
+            state: shippingAddr.state,
+            postal_code: shippingAddr.postal_code,
+            country: shippingAddr.country,
+          },
+        };
+
+        // Send emails in background (don't block the UI)
+        sendOrderEmails(emailData).then(result => {
+          console.log('Email results:', result);
+        }).catch(err => {
+          console.error('Failed to send emails:', err);
+        });
+      };
 
       if (paymentMethod === "upi") {
         if (paymentProof) {
@@ -220,6 +281,10 @@ const Checkout = () => {
             .update({ payment_proof_url: publicUrl, payment_status: "submitted" })
             .eq("id", order.id);
           if (updateError) throw updateError;
+
+          // Send emails for UPI order with proof
+          await sendEmails("submitted");
+
           clearCart();
           navigate("/account/orders");
           toast({ title: "Order placed!", description: "Payment proof uploaded for verification" });
@@ -227,6 +292,9 @@ const Checkout = () => {
           setStep(3);
         }
       } else {
+        // Send emails for COD order
+        await sendEmails("pending");
+
         clearCart();
         navigate("/account/orders");
         toast({
@@ -273,6 +341,56 @@ const Checkout = () => {
 
       if (updateError) throw updateError;
 
+      // Fetch order items and address for email
+      const { data: orderItemsData } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", orderData.id);
+
+      const { data: shippingAddr } = await supabase
+        .from("addresses")
+        .select("*")
+        .eq("id", orderData.shipping_address_id)
+        .single();
+
+      // Send order confirmation emails
+      if (shippingAddr) {
+        const emailData: OrderEmailData = {
+          orderNumber: orderData.order_number,
+          orderDate: orderData.created_at,
+          customerName: shippingAddr.full_name,
+          customerEmail: user.email || '',
+          paymentMethod: 'upi',
+          paymentStatus: 'submitted',
+          totalAmount: orderData.total_amount,
+          items: (orderItemsData || []).map((item: any) => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            variant_color: item.variant_color,
+            variant_size: item.variant_size,
+          })),
+          shippingAddress: {
+            full_name: shippingAddr.full_name,
+            phone: shippingAddr.phone,
+            address_line_1: shippingAddr.address_line_1,
+            address_line_2: shippingAddr.address_line_2,
+            city: shippingAddr.city,
+            state: shippingAddr.state,
+            postal_code: shippingAddr.postal_code,
+            country: shippingAddr.country,
+          },
+        };
+
+        // Send emails in background
+        sendOrderEmails(emailData).then(result => {
+          console.log('Email results:', result);
+        }).catch(err => {
+          console.error('Failed to send emails:', err);
+        });
+      }
+
       clearCart();
       navigate("/account/orders");
       toast({
@@ -301,17 +419,15 @@ const Checkout = () => {
             {[1, 2, 3].map((s) => (
               <div key={s} className="flex items-center flex-1">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                    step >= s ? "bg-primary text-primary-foreground" : "bg-muted"
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted"
+                    }`}
                 >
                   {s}
                 </div>
                 {s < 3 && (
                   <div
-                    className={`flex-1 h-1 mx-2 ${
-                      step > s ? "bg-primary" : "bg-muted"
-                    }`}
+                    className={`flex-1 h-1 mx-2 ${step > s ? "bg-primary" : "bg-muted"
+                      }`}
                   />
                 )}
               </div>
