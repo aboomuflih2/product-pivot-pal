@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AdminRoute from "@/components/auth/AdminRoute";
 import AdminNav from "@/components/admin/AdminNav";
+import VisitorStats from "@/components/admin/VisitorStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingCart, TrendingUp, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -125,6 +126,11 @@ const Dashboard = () => {
                   icon={TrendingUp}
                   description="In transit"
                 />
+              </div>
+
+              {/* Visitor Analytics */}
+              <div className="mb-8">
+                <VisitorStats />
               </div>
 
               <Card>
